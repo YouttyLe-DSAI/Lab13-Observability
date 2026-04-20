@@ -3,164 +3,369 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Observability Lab Dashboard</title>
+    <title>SRE Observability | Premium Command Center</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0f172a;
-            --card: #1e293b;
-            --text: #f1f5f9;
-            --primary: #38bdf8;
-            --accent: #818cf8;
-            --success: #4ade80;
-            --warn: #fbbf24;
-            --error: #f87171;
+            --bg-body: #0a0c10;
+            --bg-card: #161b22;
+            --border-color: #30363d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --primary: #58a6ff;
+            --success: #3fb950;
+            --danger: #f85149;
+            --warning: #d29922;
+            --accent: #bc8cff;
         }
+
+        * { box-sizing: border-box; }
         body {
-            background-color: var(--bg);
-            color: var(--text);
-            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             margin: 0;
             padding: 2rem;
+            line-height: 1.5;
         }
+
+        .container { max-width: 1400px; margin: 0 auto; }
+
+        /* Header Layout */
         .header {
             display: flex;
             justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 2.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1.5rem;
+        }
+
+        .header-title h1 {
+            margin: 0;
+            font-size: 1.75rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .header-title p {
+            margin: 0.25rem 0 0 0;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .system-status {
+            display: flex;
             align-items: center;
-            margin-bottom: 2rem;
-        }
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 1.5rem;
-        }
-        .card {
-            background-color: var(--card);
-            border-radius: 0.75rem;
-            padding: 1.5rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        }
-        h2 { font-size: 1.1rem; margin-top: 0; color: var(--primary); }
-        .stats { font-size: 2rem; font-weight: 600; margin: 0.5rem 0; }
-        .label { font-size: 0.875rem; opacity: 0.7; }
-        .badge {
-            padding: 0.25rem 0.5rem;
-            border-radius: 9999px;
+            gap: 0.75rem;
             font-size: 0.75rem;
             font-weight: 600;
+            color: var(--success);
+            background: rgba(63, 185, 80, 0.1);
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
         }
-        .badge-live { background-color: var(--success); color: #064e3b; }
+
+        .pulse {
+            width: 8px; height: 8px;
+            background-color: var(--success);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Section Layout */
+        .section-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .section-label::after { content: ""; flex: 1; height: 1px; background: var(--border-color); }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 1.25rem;
+            margin-bottom: 3rem;
+        }
+
+        /* Card Styles */
+        .card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .card-title {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .card-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-top: auto;
+        }
+
+        .card-delta {
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-top: 0.25rem;
+        }
+
+        .chart-container {
+            margin-top: 1.5rem;
+            height: 120px;
+        }
+
+        /* Size Utilities */
+        .col-3 { grid-column: span 3; }
+        .col-4 { grid-column: span 4; }
+        .col-6 { grid-column: span 6; }
+        .col-8 { grid-column: span 8; }
+        .col-12 { grid-column: span 12; }
+
+        /* Specific Color Variations */
+        .val-latency { color: var(--accent); }
+        .val-traffic { color: var(--primary); }
+        .val-error { color: var(--danger); }
+        .val-saturation { color: var(--warning); }
+
+        /* Progress Bar */
+        .progress-track {
+            width: 100%;
+            height: 6px;
+            background-color: #21262d;
+            border-radius: 3px;
+            margin-top: 1rem;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: var(--warning);
+            width: 0%;
+            transition: width 1s ease-in-out;
+        }
+
+        /* Error List */
+        .error-item {
+            background: rgba(248, 81, 73, 0.1);
+            border: 1px solid rgba(248, 81, 73, 0.2);
+            padding: 0.4rem 0.75rem;
+            border-radius: 0.4rem;
+            font-size: 0.75rem;
+            color: #ffa198;
+            margin-top: 0.5rem;
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div>
-            <h1>Observability Lab Dashboard</h1>
-            <p class="label">System Performance & AI Metris Overview</p>
+    <div class="container">
+        <div class="header">
+            <div class="header-title">
+                <h1>Observability Command Center</h1>
+                <p>Google SRE Golden Signals Monitoring</p>
+            </div>
+            <div class="system-status">
+                <div class="pulse"></div>
+                <span id="syncText">STREAMING ACTIVE (15s)</span>
+            </div>
         </div>
-        <span class="badge badge-live">● LIVE SYSTEM</span>
-    </div>
 
-    <div class="grid">
-        <div class="card">
-            <h2>Requests Tracking</h2>
-            <canvas id="trafficChart"></canvas>
+        <!-- 1. GOLDEN SIGNALS -->
+        <div class="section-label">1. Basic Health (4 Golden Signals)</div>
+        <div class="grid">
+            <div class="card col-3">
+                <div class="card-header"><span class="card-title">LATENCY (P95)</span></div>
+                <div id="p95Val" class="card-value val-latency">0ms</div>
+                <div class="chart-container">
+                    <canvas id="latencyChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card col-3">
+                <div class="card-header"><span class="card-title">TRAFFIC (QPS)</span></div>
+                <div id="trafficVal" class="card-value val-traffic">0 req</div>
+                <div class="chart-container">
+                    <canvas id="trafficChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card col-3">
+                <div class="card-header"><span class="card-title">ERROR RATE (%)</span></div>
+                <div id="errorRateVal" class="card-value val-error">0.00%</div>
+                <div id="errorList" style="margin-top: 1rem;">
+                    <div style="font-size: 0.75rem; color: var(--success);">✔ All systems clear</div>
+                </div>
+            </div>
+
+            <div class="card col-3">
+                <div class="card-header"><span class="card-title">SATURATION</span></div>
+                <div id="saturationVal" class="card-value val-saturation">0.0%</div>
+                <div class="progress-track">
+                    <div id="saturationBar" class="progress-fill"></div>
+                </div>
+                <div style="margin-top: 0.5rem; font-size: 0.7rem; color: var(--text-secondary);">Capacity utilization</div>
+            </div>
         </div>
-        <div class="card">
-            <h2>Latency (ms)</h2>
-            <canvas id="latencyChart"></canvas>
+
+        <!-- 2. ECONOMIC EFFICIENCY -->
+        <div class="section-label">2. Economic Efficiency & Cost</div>
+        <div class="grid">
+            <div class="card col-4">
+                <div class="card-header"><span class="card-title">TOTAL EXPENDITURE</span></div>
+                <div id="totalCost" class="card-value">$0.0000</div>
+                <p class="card-sub" style="margin-top: 0.5rem; color: var(--text-secondary);">Last 30 days projection</p>
+            </div>
+
+            <div class="card col-4">
+                <div class="card-header"><span class="card-title">UNIT ECONOMICS</span></div>
+                <div id="costPerReq" style="font-size: 1.25rem; font-weight: 600;">$0.0000 /req</div>
+                <div id="costPerUser" style="font-size: 1.25rem; font-weight: 600; margin-top: 0.5rem;">$0.0000 /user</div>
+            </div>
+
+            <div class="card col-4">
+                <div class="card-header"><span class="card-title">TOKEN PERFORMANCE</span></div>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <div style="width: 80px; height: 80px;"><canvas id="tokenChart"></canvas></div>
+                    <div id="tokenDetails" style="font-size: 0.75rem; color: var(--text-secondary);"></div>
+                </div>
+            </div>
         </div>
-        <div class="card">
-            <h2>Cost (USD)</h2>
-            <div id="totalCost" class="stats">$0.00</div>
-            <p class="label">Total Cumulative Spend</p>
-        </div>
-        <div class="card">
-            <h2>Quality Proxy</h2>
-            <canvas id="qualityChart"></canvas>
-        </div>
-        <div class="card">
-            <h2>Token Distribution</h2>
-            <canvas id="tokenChart"></canvas>
-        </div>
-        <div class="card">
-            <h2>Error Distribution</h2>
-            <canvas id="errorChart"></canvas>
+
+        <!-- 3. AI QUALITY -->
+        <div class="section-label">3. AI Quality & Groundedness</div>
+        <div class="grid">
+            <div class="card col-6">
+                <div class="card-header"><span class="card-title">QUALITY SCORE TREND</span></div>
+                <div style="display: flex; gap: 4rem; align-items: baseline;">
+                    <div>
+                        <div id="qualityVal" class="card-value" style="color: var(--success);">0.00</div>
+                        <div style="font-size: 0.7rem; color: var(--text-secondary);">Avg. Quality (Judge)</div>
+                    </div>
+                    <div>
+                        <div id="groundednessVal" class="card-value" style="color: var(--accent);">0.00</div>
+                        <div style="font-size: 0.7rem; color: var(--text-secondary);">Context Groundedness</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card col-6">
+                <div class="card-header"><span class="card-title">ESTIMATED CSAT</span></div>
+                <div id="csatVal" class="card-value">0.0</div>
+                <div style="height: 10px; background: #21262d; border-radius: 5px; margin-top: 1rem; overflow: hidden; display: flex;">
+                    <div id="csatBar" style="height: 100%; background: linear-gradient(to right, #f85149, #3fb950); width: 0%;"></div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        const data = /* DATA_JSON */ {};
-        
-        // Traffic Chart
-        new Chart(document.getElementById('trafficChart'), {
-            type: 'line',
-            data: {
-                labels: data.timestamps,
-                datasets: [{
-                    label: 'Requests',
-                    data: data.traffic,
-                    borderColor: '#38bdf8',
-                    tension: 0.4
-                }]
-            },
-            options: { plugins: { legend: { display: false } } }
-        });
+        let counter = 15;
+        let charts = {};
 
-        // Latency Chart
-        new Chart(document.getElementById('latencyChart'), {
-            type: 'bar',
-            data: {
-                labels: ['P50', 'P95', 'P99'],
-                datasets: [{
-                    data: [data.p50, data.p95, data.p99],
-                    backgroundColor: ['#38bdf8', '#818cf8', '#f87171']
-                }]
-            }
-        });
+        const chartConfig = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { display: false }, y: { display: false } }
+        };
 
-        // Total Cost
-        document.getElementById('totalCost').innerText = `$${data.total_cost.toFixed(4)}`;
+        function initCharts() {
+            charts.latency = new Chart(document.getElementById('latencyChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ data: [], borderColor: '#bc8cff', borderWidth: 2, pointRadius: 0, tension: 0.4 }] },
+                options: chartConfig
+            });
+            charts.traffic = new Chart(document.getElementById('trafficChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ data: [], borderColor: '#58a6ff', borderWidth: 2, fill: true, backgroundColor: 'rgba(88,166,255,0.1)', pointRadius: 0 }] },
+                options: chartConfig
+            });
+            charts.tokens = new Chart(document.getElementById('tokenChart'), {
+                type: 'doughnut',
+                data: { labels: ['IN', 'OUT'], datasets: [{ data: [1, 1], backgroundColor: ['#58a6ff', '#bc8cff'], borderWidth: 0 }] },
+                options: { ...chartConfig, cutout: '75%' }
+            });
+        }
 
-        // Token Chart (Input vs Output)
-        new Chart(document.getElementById('tokenChart'), {
-            type: 'doughnut',
-            data: {
-                labels: ['Input', 'Output'],
-                datasets: [{
-                    data: [data.tokens_in, data.tokens_out],
-                    backgroundColor: ['#38bdf8', '#fbbf24']
-                }]
-            }
-        });
+        async function updateData() {
+            try {
+                const response = await fetch('/dashboard/data');
+                const data = await response.json();
 
-        // Error Chart
-        new Chart(document.getElementById('errorChart'), {
-            type: 'pie',
-            data: {
-                labels: Object.keys(data.errors),
-                datasets: [{
-                    data: Object.values(data.errors),
-                    backgroundColor: ['#f87171', '#fbbf24', '#818cf8']
-                }]
-            }
-        });
+                // Golden Signals
+                document.getElementById('p95Val').innerText = `${data.p95}ms`;
+                document.getElementById('trafficVal').innerText = `${data.traffic[data.traffic.length-1] || 0} reqs`;
+                document.getElementById('errorRateVal').innerText = `${data.error_rate}%`;
+                document.getElementById('saturationVal').innerText = `${data.saturation}%`;
+                document.getElementById('saturationBar').style.width = `${data.saturation}%`;
 
-        // Quality Chart
-        new Chart(document.getElementById('qualityChart'), {
-            type: 'line',
-            data: {
-                labels: data.timestamps,
-                datasets: [{
-                    label: 'Quality Score',
-                    data: data.quality,
-                    borderColor: '#4ade80',
-                    fill: true,
-                    backgroundColor: 'rgba(74, 222, 128, 0.1)'
-                }]
-            }
-        });
+                charts.latency.data.labels = data.timestamps;
+                charts.latency.data.datasets[0].data = data.quality.map(() => data.p95); // Using windowed samples
+                charts.latency.update('none');
+
+                charts.traffic.data.labels = data.timestamps;
+                charts.traffic.data.datasets[0].data = data.traffic;
+                charts.traffic.update('none');
+
+                // Error List
+                const errDiv = document.getElementById('errorList');
+                if (Object.keys(data.errors).length === 0) {
+                    errDiv.innerHTML = '<div style="font-size: 0.75rem; color: var(--success);">✔ All systems clear</div>';
+                } else {
+                    errDiv.innerHTML = Object.entries(data.errors).map(([k,v]) => `<div class="error-item"><strong>${k}</strong>: ${v} instance(s)</div>`).join('');
+                }
+
+                // Economy
+                document.getElementById('totalCost').innerText = `$${data.total_cost.toFixed(4)}`;
+                document.getElementById('costPerReq').innerText = `$${data.cost_per_request.toFixed(6)} /req`;
+                document.getElementById('costPerUser').innerText = `$${data.cost_per_user.toFixed(4)} /user`;
+                
+                charts.tokens.data.datasets[0].data = [data.tokens_in, data.tokens_out];
+                charts.tokens.update('none');
+                document.getElementById('tokenDetails').innerHTML = `In: ${data.tokens_in}<br>Out: ${data.tokens_out}`;
+
+                // Quality
+                document.getElementById('qualityVal').innerText = data.avg_quality.toFixed(2);
+                document.getElementById('groundednessVal').innerText = data.groundedness.toFixed(2);
+                document.getElementById('csatVal').innerText = data.csat.toFixed(1);
+                document.getElementById('csatBar').style.width = `${data.csat * 10}%`;
+
+                counter = 15;
+            } catch (e) { console.error(e); }
+        }
+
+        setInterval(() => {
+            counter--;
+            if (counter <= 0) updateData();
+            document.getElementById('syncText').innerText = `STREAMING ACTIVE (${counter}s)`;
+        }, 1000);
+
+        initCharts();
+        updateData();
     </script>
 </body>
 </html>
