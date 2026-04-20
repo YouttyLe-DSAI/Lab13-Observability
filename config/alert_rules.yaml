@@ -1,0 +1,37 @@
+alerts:
+  - name: high_latency_p95
+    severity: P2
+    condition: latency_p95_ms > 5000 for 30m
+    type: symptom-based
+    owner: team-oncall
+    runbook: docs/alerts.md#1-high-latency-p95
+  - name: high_error_rate
+    severity: P1
+    condition: error_rate_pct > 5 for 5m
+    type: symptom-based
+    owner: team-oncall
+    runbook: docs/alerts.md#2-high-error-rate
+  - name: cost_budget_spike
+    severity: P2
+    condition: hourly_cost_usd > 2x_baseline for 15m
+    type: symptom-based
+    owner: finops-owner
+    runbook: docs/alerts.md#3-cost-budget-spike
+  - name: daily_budget_limit
+    severity: P1
+    condition: daily_cost_usd > 5.00
+    type: budget-based
+    owner: finance-team
+    runbook: docs/alerts.md#4-daily-budget-limit
+  - name: critical_latency_p99
+    severity: P1
+    condition: latency_p99_ms > 8000 for 5m
+    type: symptom-based
+    owner: team-oncall
+    runbook: docs/alerts.md#5-critical-latency-p99
+  - name: unauthorized_incident_toggle
+    severity: P2
+    condition: audit_event == "incident_enabled" by unauthorized_user
+    type: security-based
+    owner: security-team
+    runbook: docs/alerts.md#6-unauthorized-incident-toggle
