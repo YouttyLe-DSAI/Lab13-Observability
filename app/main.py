@@ -53,6 +53,7 @@ async def chat(request: Request, body: ChatRequest) -> ChatResponse:
         session_id=body.session_id,
         feature=body.feature,
         model=agent.model,
+        turbo_mode=body.turbo_mode,
         env=os.getenv("APP_ENV", "dev"),
     )
     
@@ -67,6 +68,7 @@ async def chat(request: Request, body: ChatRequest) -> ChatResponse:
             feature=body.feature,
             session_id=body.session_id,
             message=body.message,
+            turbo_mode=body.turbo_mode,
         )
         log.info(
             "response_sent",
