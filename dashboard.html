@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRE Observability | Google Standard Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #030712;
+            --glass: rgba(17, 24, 39, 0.7);
+            --border: rgba(255, 255, 255, 0.1);
+            --primary: #38bdf8;
+            --secondary: #818cf8;
+            --accent: #c084fc;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --text-main: #f9fafb;
+            --text-dim: #9ca3af;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            background-color: var(--bg);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(129, 140, 248, 0.1) 0px, transparent 50%);
+            color: var(--text-main);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            margin: 0; padding: 1.5rem;
+        }
+
+        .container { max-width: 1600px; margin: 0 auto; }
+
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 2rem; padding: 1rem 1.5rem;
+            background: var(--glass); backdrop-filter: blur(12px);
+            border: 1px solid var(--border); border-radius: 1rem;
+        }
+
+        .header h1 { margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--primary); }
+
+        .section-title {
+            font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.1em; color: var(--text-dim);
+            margin: 2rem 0 1rem 0; display: flex; align-items: center; gap: 0.5rem;
+        }
+        .section-title::after { content: ""; height: 1px; background: var(--border); flex: 1; }
+
+        .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1rem; }
+
+        .card {
+            background: var(--glass); backdrop-filter: blur(12px);
+            border: 1px solid var(--border); border-radius: 1rem;
+            padding: 1.25rem; transition: transform 0.2s;
+        }
+        .card:hover { border-color: rgba(255,255,255,0.2); }
+
+        .card-label { font-size: 0.7rem; color: var(--text-dim); font-weight: 600; margin-bottom: 0.5rem; }
+        .card-value { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.25rem; }
+        .card-sub { font-size: 0.65rem; color: var(--text-dim); }
+
+        .col-3 { grid-column: span 3; }
+        .col-4 { grid-column: span 4; }
+        .col-6 { grid-column: span 6; }
+        .col-8 { grid-column: span 8; }
+        
+        canvas { width: 100% !important; height: 160px !important; }
+
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .bg-success { background: var(--success); box-shadow: 0 0 10px var(--success); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>Google SRE Dashboard</h1>
+                <p style="color: var(--text-dim); font-size: 0.75rem; margin-top: 2px;">AI System Core Monitoring v2.0</p>
+            </div>
+            <div style="font-size: 0.75rem; font-weight: 600; color: var(--success);">
+                <span class="status-dot bg-success"></span> SYNC ACTIVE <span id="syncStatus">(15s)</span>
+            </div>
+        </div>
+
+        <!-- 4 GOLDEN SIGNALS -->
+        <div class="section-title">1. The 4 Golden Signals</div>
+        <div class="grid">
+            <!-- LATENCY -->
+            <div class="card col-3">
+                <div class="card-label">LATENCY (P95)</div>
+                <div id="p95Val" class="card-value">0ms</div>
+                <div class="card-sub">Response time percentile</div>
+                <canvas id="latencyChart" style="height: 100px !important; margin-top: 1rem;"></canvas>
+            </div>
+
+            <!-- TRAFFIC -->
+            <div class="card col-3">
+                <div class="card-label">TRAFFIC (RATE)</div>
+                <div id="trafficVal" class="card-value">0 req</div>
+                <div class="card-sub">Total processed requests</div>
+                <canvas id="trafficChart" style="height: 100px !important; margin-top: 1rem;"></canvas>
+            </div>
+
+            <!-- ERRORS -->
+            <div class="card col-3">
+                <div class="card-label">ERRORS (RATE %)</div>
+                <div id="errorRateVal" class="card-value" style="color: var(--danger);">0.0%</div>
+                <div class="card-sub">Failure percentage</div>
+                <div id="errorList" style="margin-top: 1rem; font-size: 0.65rem;">Scanning...</div>
+            </div>
+
+            <!-- SATURATION -->
+            <div class="card col-3">
+                <div class="card-label">SATURATION (%)</div>
+                <div id="saturationVal" class="card-value" style="color: var(--warning);">0.0%</div>
+                <div class="card-sub">Resource occupancy (Quota)</div>
+                <div style="height: 8px; background: #1f2937; border-radius: 4px; margin-top: 1.5rem;">
+                    <div id="saturationBar" style="height: 100%; background: var(--warning); border-radius: 4px; width: 0%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- COST SECTION -->
+        <div class="section-title">2. Economic Efficiency (Cost)</div>
+        <div class="grid">
+            <div class="card col-4">
+                <div class="card-label">ACCUMULATED SPEND</div>
+                <div id="totalCost" class="card-value">$0.0000</div>
+                <div class="card-sub">Total OpenAI API usage</div>
+            </div>
+            <div class="card col-4">
+                <div class="card-label">AVG COST PER REQUEST</div>
+                <div id="costPerReq" class="card-value">$0.0000</div>
+                <div class="card-sub">Efficiency per call</div>
+            </div>
+            <div class="card col-4">
+                <div class="card-label">COST PER UNIQUE USER</div>
+                <div id="costPerUser" class="card-value">$0.0000</div>
+                <div class="card-sub">Unit economics</div>
+            </div>
+            <div class="card col-12">
+                <div class="card-label">TOKEN DISTRIBUTION (INPUT VS OUTPUT)</div>
+                <div style="display: flex; gap: 2rem; align-items: center;">
+                    <canvas id="tokenChart" style="height: 150px !important; width: 150px !important;"></canvas>
+                    <div id="tokenDetails" style="font-size: 0.8rem; color: var(--text-dim);"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- QUALITY SECTION -->
+        <div class="section-title">3. AI Quality & Groundedness</div>
+        <div class="grid">
+            <div class="card col-4">
+                <div class="card-label">GROUNDEDNESS SCORE</div>
+                <div id="groundednessVal" class="card-value" style="color: var(--accent);">0.00</div>
+                <div class="card-sub">Context alignment (0.0 - 5.0)</div>
+            </div>
+            <div class="card col-4">
+                <div class="card-label">LLM-AS-JUDGE QUALITY</div>
+                <div id="qualityVal" class="card-value" style="color: var(--success);">0.00</div>
+                <div class="card-sub">Average response quality</div>
+            </div>
+            <div class="card col-4">
+                <div class="card-label">ESTIMATED CSAT</div>
+                <div id="csatVal" class="card-value">0.0</div>
+                <div class="card-sub">Customer Satisfaction Index (0-10)</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let charts = {};
+        let timeLeft = 15;
+
+        const baseChartConfig = {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { display: false }, y: { display: false } }
+        };
+
+        function initCharts() {
+            charts.latency = new Chart(document.getElementById('latencyChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ data: [], borderColor: '#818cf8', borderWidth: 2, tension: 0.4, pointRadius: 0 }] },
+                options: baseChartConfig
+            });
+            charts.traffic = new Chart(document.getElementById('trafficChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ data: [], borderColor: '#38bdf8', borderWidth: 2, fill: true, backgroundColor: 'rgba(56,189,248,0.1)', pointRadius: 0 }] },
+                options: baseChartConfig
+            });
+            charts.tokens = new Chart(document.getElementById('tokenChart'), {
+                type: 'doughnut',
+                data: { labels: ['IN', 'OUT'], datasets: [{ data: [1, 1], backgroundColor: ['#38bdf8', '#c084fc'], borderWidth: 0 }] },
+                options: { ...baseChartConfig, cutout: '80%' }
+            });
+        }
+
+        async function updateData() {
+            try {
+                const response = await fetch('/dashboard/data');
+                const data = await response.json();
+
+                // 4 Golden Signals
+                document.getElementById('p95Val').innerText = `${data.p95}ms`;
+                document.getElementById('trafficVal').innerText = `${data.traffic[data.traffic.length-1] || 0} reqs`;
+                document.getElementById('errorRateVal').innerText = `${data.error_rate}%`;
+                document.getElementById('saturationVal').innerText = `${data.saturation}%`;
+                document.getElementById('saturationBar').style.width = `${data.saturation}%`;
+
+                charts.latency.data.labels = data.timestamps;
+                charts.latency.data.datasets[0].data = data.quality.map((_, i) => data.p95); // Approximation
+                charts.latency.update('none');
+
+                charts.traffic.data.labels = data.timestamps;
+                charts.traffic.data.datasets[0].data = data.traffic;
+                charts.traffic.update('none');
+
+                // Error List
+                const errorDiv = document.getElementById('errorList');
+                if (Object.keys(data.errors).length === 0) {
+                    errorDiv.innerHTML = '<span style="color: var(--success);">✔ Healthy</span>';
+                } else {
+                    errorDiv.innerHTML = Object.entries(data.errors).map(([k, v]) => `<div>${k}: ${v}</div>`).join('');
+                }
+
+                // Cost
+                document.getElementById('totalCost').innerText = `$${data.total_cost.toFixed(4)}`;
+                document.getElementById('costPerReq').innerText = `$${data.cost_per_request.toFixed(6)}`;
+                document.getElementById('costPerUser').innerText = `$${data.cost_per_user.toFixed(4)}`;
+
+                charts.tokens.data.datasets[0].data = [data.tokens_in, data.tokens_out];
+                charts.tokens.update('none');
+                document.getElementById('tokenDetails').innerHTML = `In: ${data.tokens_in}<br>Out: ${data.tokens_out}`;
+
+                // Quality
+                document.getElementById('groundednessVal').innerText = data.groundedness;
+                document.getElementById('qualityVal').innerText = data.avg_quality;
+                document.getElementById('csatVal').innerText = data.csat;
+
+                timeLeft = 15;
+            } catch (err) { console.error(err); }
+        }
+
+        setInterval(() => {
+            timeLeft--;
+            if(timeLeft <= 0) updateData();
+            document.getElementById('syncStatus').innerText = `(${timeLeft}s)`;
+        }, 1000);
+
+        initCharts();
+        updateData();
+    </script>
+</body>
+</html>
