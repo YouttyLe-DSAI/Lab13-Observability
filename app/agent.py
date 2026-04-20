@@ -35,7 +35,7 @@ class LabAgent:
         self.model = model
         self.llm = OpenAILLM(model=model)
 
-    def run(self, user_id: str, feature: str, session_id: str, message: str, turbo_mode: bool = False) -> AgentResult:
+    def run(self, user_id: str, feature: str, session_id: str, message: str, turbo_mode: bool = True) -> AgentResult:
         started = time.perf_counter()
         docs = retrieve(message)
         
@@ -76,6 +76,8 @@ class LabAgent:
                             "output": response.usage.output_tokens
                         }
                     )
+                # Đảm bảo dữ liệu bay đi ngay
+                langfuse_client.flush()
             except Exception as e:
                 print(f"⚠️ Tracing Error: {e}")
 

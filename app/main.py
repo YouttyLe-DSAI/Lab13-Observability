@@ -6,8 +6,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from structlog.contextvars import bind_contextvars
+
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+import json
 
 from .agent import LabAgent
 from .incidents import disable, enable, status
@@ -22,7 +26,24 @@ configure_logging()
 log = get_logger()
 app = FastAPI(title="Day 13 Observability Lab")
 app.add_middleware(CorrelationIdMiddleware)
+
+# Mount static files
+STATIC_DIR = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+@app.get("/dashboard")
+async def get_dashboard():
+    return FileResponse(STATIC_DIR / "dashboard.html")
+
 agent = LabAgent()
+
+LOG_FILE_PATH = Path("data/logs.jsonl")
+
+def calculate_percentile(values, p):
+    if not values: return 0
+    items = sorted(values)
+    idx = max(0, min(len(items) - 1, round((p / 100) * len(items) + 0.5) - 1))
+    return items[idx]
 
 
 @app.on_event("startup")
@@ -43,6 +64,44 @@ async def health() -> dict:
 @app.get("/metrics")
 async def metrics() -> dict:
     return snapshot()
+
+
+@app.get("/dashboard/data")
+async def dashboard_data() -> dict:
+    if not LOG_FILE_PATH.exists():
+        return {"timestamps": [], "traffic": [], "p50": 0, "p95": 0, "p99": 0, "total_cost": 0, "tokens_in": 0, "tokens_out": 0, "errors": {}, "quality": []}
+
+    records = []
+    with LOG_FILE_PATH.open("r", encoding="utf-8") as f:
+        for line in f:
+            try:
+                records.append(json.loads(line))
+            except:
+                continue
+
+    api_records = [r for r in records if r.get("service") == "api" and "latency_ms" in r]
+    
+    # Process data for charts (last 30 points)
+    window = api_records[-30:]
+    
+    errors = {}
+    for r in records:
+        if r.get("level") == "error":
+            etype = r.get("error_type", "Unknown")
+            errors[etype] = errors.get(etype, 0) + 1
+
+    return {
+        "timestamps": [r["ts"][11:19] for r in window],
+        "traffic": list(range(len(api_records) - len(window) + 1, len(api_records) + 1)),
+        "p50": calculate_percentile([r["latency_ms"] for r in api_records], 50),
+        "p95": calculate_percentile([r["latency_ms"] for r in api_records], 95),
+        "p99": calculate_percentile([r["latency_ms"] for r in api_records], 99),
+        "total_cost": sum(r.get("cost_usd", 0) for r in api_records),
+        "tokens_in": sum(r.get("tokens_in", 0) for r in api_records),
+        "tokens_out": sum(r.get("tokens_out", 0) for r in api_records),
+        "errors": errors,
+        "quality": [r.get("quality_score", 0) for r in window]
+    }
 
 
 @app.post("/chat", response_model=ChatResponse)
