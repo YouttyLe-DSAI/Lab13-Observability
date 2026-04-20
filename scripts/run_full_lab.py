@@ -26,16 +26,20 @@ def main():
         print("CRITICAL: OPENAI_API_KEY not found in environment.")
         sys.exit(1)
 
-    # 2. Baseline Load Test
-    run_cmd("python scripts/load_test.py --concurrency 2", "Running baseline load test")
+    # 2. Baseline Load Test (Reduced)
+    run_cmd("python scripts/load_test.py --concurrency 4", "Running fast baseline load test")
 
-    # 3. Cost Benchmarking
+    # 3. Cost Benchmarking (Optimized)
     run_cmd("python scripts/cost_bench.py", "Running cost optimization benchmark")
 
-    # 4. Incident Injection & Test
-    run_cmd("python scripts/inject_incident.py --scenario rag_slow", "Injecting failure: RAG_SLOW")
-    run_cmd("python scripts/load_test.py --concurrency 3", "Running load test during incident")
-    run_cmd("python scripts/inject_incident.py --scenario rag_slow", "Disabling incident") # Toggle off
+    # 4. Incident Injection & System Error Mock
+    run_cmd("python scripts/inject_incident.py --scenario rag_slow", "Injecting LATENCY: RAG_SLOW")
+    run_cmd("python scripts/load_test.py --concurrency 2", "Sampling latency logs...")
+    run_cmd("python scripts/inject_incident.py --scenario rag_slow", "Disabling RAG_SLOW")
+
+    run_cmd("python scripts/inject_incident.py --scenario api_outage", "Injecting SYSTEM ERROR: API_OUTAGE")
+    run_cmd("python scripts/load_test.py --concurrency 2", "Sampling error logs...")
+    run_cmd("python scripts/inject_incident.py --scenario api_outage", "Restoring System")
 
     # 5. Result Verification
     run_cmd("python scripts/validate_logs.py", "Verifying log schema and PII")

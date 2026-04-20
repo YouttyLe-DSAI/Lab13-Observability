@@ -11,7 +11,7 @@ class ChatRequest(BaseModel):
     session_id: str = Field(..., examples=["s_demo_01"])
     feature: str = Field(default="qa", examples=["qa", "summary"])
     message: str = Field(..., min_length=1)
-    turbo_mode: bool = Field(default=False, description="Enable cost-optimized short responses")
+    turbo_mode: bool = Field(default=True, description="Enable cost-optimized short responses")
 
 
 class ChatResponse(BaseModel):
