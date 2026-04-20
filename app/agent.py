@@ -5,7 +5,7 @@ import time
 from dataclasses import dataclass
 
 from . import metrics
-from .mock_llm import FakeLLM
+from .llm import OpenAILLM
 from .mock_rag import retrieve
 from .pii import hash_user_id, summarize_text
 
@@ -31,15 +31,23 @@ class AgentResult:
     quality_score: float
 
 class LabAgent:
-    def __init__(self, model: str = "claude-sonnet-4-5") -> None:
+    def __init__(self, model: str = "gpt-4o-mini") -> None:
         self.model = model
-        self.llm = FakeLLM(model=model)
+        self.llm = OpenAILLM(model=model)
 
-    def run(self, user_id: str, feature: str, session_id: str, message: str) -> AgentResult:
+    def run(self, user_id: str, feature: str, session_id: str, message: str, turbo_mode: bool = False) -> AgentResult:
         started = time.perf_counter()
         docs = retrieve(message)
-        prompt = f"Feature={feature}\nDocs={docs}\nQuestion={message}"
-        response = self.llm.generate(prompt)
+        
+        # Optimization: Turbo mode uses a more concise prompt
+        if turbo_mode:
+            system_prompt = "You are a concise AI. Answer in 1 short sentence using the context."
+            prompt = f"Context: {docs}\nQuestion: {message}"
+        else:
+            system_prompt = "You are a helpful AI assistant. Use the following context to answer the user request in detail."
+            prompt = f"Feature={feature}\nSession={session_id}\nContext={docs}\n\nUser Question: {message}"
+        
+        response = self.llm.generate(prompt, system_prompt=system_prompt)
         
         quality_score = self._heuristic_quality(message, response.text, docs)
         latency_ms = int((time.perf_counter() - started) * 1000)
@@ -57,6 +65,7 @@ class LabAgent:
                         "session_id": session_id,
                         "model": self.model,
                         "feature": feature,
+                        "turbo_mode": turbo_mode,
                         "cost": cost_usd
                     }
                 ) as trace:
@@ -67,8 +76,6 @@ class LabAgent:
                             "output": response.usage.output_tokens
                         }
                     )
-                # Đảm bảo dữ liệu bay đi ngay
-                langfuse_client.flush()
             except Exception as e:
                 print(f"⚠️ Tracing Error: {e}")
 
@@ -90,8 +97,20 @@ class LabAgent:
         )
 
     def _estimate_cost(self, tokens_in: int, tokens_out: int) -> float:
-        input_cost = (tokens_in / 1_000_000) * 3
-        output_cost = (tokens_out / 1_000_000) * 15
+        """Tính toán chi phí dựa trên model và số lượng token thực tế."""
+        if self.model == "gpt-4o-mini":
+            # $0.15 / 1M input, $0.60 / 1M output
+            input_cost = (tokens_in / 1_000_000) * 0.15
+            output_cost = (tokens_out / 1_000_000) * 0.60
+        elif self.model == "gpt-4o":
+            # $5.00 / 1M input, $15.00 / 1M output
+            input_cost = (tokens_in / 1_000_000) * 5.0
+            output_cost = (tokens_out / 1_000_000) * 15.0
+        else:
+            # Default fallback (claude-sonnet style pricing)
+            input_cost = (tokens_in / 1_000_000) * 3.0
+            output_cost = (tokens_out / 1_000_000) * 15.0
+        
         return round(input_cost + output_cost, 6)
 
     def _heuristic_quality(self, question: str, answer: str, docs: list[str]) -> float:

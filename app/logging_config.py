@@ -79,7 +79,12 @@ def log_audit_event(event: str, payload: dict[str, Any] | None = None) -> None:
         "level": "warning",
         "service": "audit",
         "event": safe_event,
-        "payload": safe_payload
+        "payload": safe_payload,
+        "context": {
+            "app_version": "1.2.0",
+            "log_id": f"audit-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            "source": "admin_action"
+        }
     }
     
     with LOG_AUDIT_PATH.open("a", encoding="utf-8") as f:
