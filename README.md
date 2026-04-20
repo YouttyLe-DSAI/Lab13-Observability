@@ -25,28 +25,57 @@ This template is intentionally incomplete. Teams are expected to finish TODOs du
 7. **Dashboards**: Build your 6-panel dashboard from exported metrics.
 8. **Alerting**: Configure alert rules in `config/alert_rules.yaml` and test them.
 
-## Quick start
+## 🛠 Quick Start (Running the Lab)
 
+### 1. Setup Environment
 ```bash
+# Create and activate virtual environment
 python -m venv .venv
+# Windows:
+.venv\Scripts\activate
+# Linux/Mac:
 source .venv/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
+
+# Setup API Key (Add your OPENAI_API_KEY to .env)
 cp .env.example .env
-uvicorn app.main:app --reload
 ```
 
-## Tooling
-
+### 2. Run the Server
 ```bash
-# Generate requests (use --concurrency 5 to test parallel bottlenecks)
-python scripts/load_test.py --concurrency 5
-
-# Inject failures live
-python scripts/inject_incident.py --scenario rag_slow
-
-# Check your implementation progress
-python scripts/validate_logs.py
+# Start the FastAPI server
+uvicorn app.main:app
 ```
+
+### 3. Automated Lab Execution
+Chạy toàn bộ quy trình từ Load Test, Benchmark đến Dashboard chỉ với 1 câu lệnh:
+```bash
+python scripts/run_full_lab.py
+```
+
+## 🔍 Advanced Tooling
+
+### Generate Traffic
+```bash
+# Run load test with specific concurrency and limit
+python scripts/load_test.py --concurrency 4 --limit 10
+```
+
+### Mock Incidents (System Failures)
+```bash
+# Simulate RAG Latency
+python scripts/inject_incident.py --scenario rag_slow
+# Simulate API Outage (System Error)
+python scripts/inject_incident.py --scenario api_outage
+# Disable all incidents
+python scripts/inject_incident.py --scenario rag_slow --disable
+```
+
+### Monitoring & Dashboard
+- **SRE Dashboard (Real-time)**: [http://127.0.0.1:8000/dashboard](http://127.0.0.1:8000/dashboard)
+- **Technical Evidence**: [http://127.0.0.1:8000/static/evidence.html](http://127.0.0.1:8000/static/evidence.html)
 
 ## Repo map
 
